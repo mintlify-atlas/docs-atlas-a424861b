@@ -1,0 +1,151 @@
+---
+title: "Seeded hashing"
+description: "Create independent hash spaces with custom seeds."
+---
+
+By default, `New()` and `Sum64` use a zero seed. When you supply a custom seed, you get an entirely independent family of hash values — the same input produces a different output for every distinct seed. Use seeded hashing when you need multiple independent hash spaces, want to guard against hash-flooding attacks, or need reproducible but distinct hash series across different components of your system.
+
+<Tip>
+  Use a different seed for each independent hash table or data structure in your
+  application. Even if two tables contain the same keys, their hash values will
+  differ, which prevents an attacker who knows one hash function from predicting
+  collisions in the other.
+</Tip>
+
+---
+
+## NewWithSeed
+
+```go
+func NewWithSeed(seed uint64) *Digest
+```
+
+`NewWithSeed` creates and returns a new `*Digest` initialised with the given seed. All subsequent writes to this `Digest` will produce hash values in the hash family defined by that seed.
+
+Calling `NewWithSeed(0)` is identical to calling `New()`.
+
+<ParamField path="seed" type="uint64" required>
+  The seed value that defines the hash family. Use any `uint64` value. A seed of
+  `0` produces the same results as the unseeded functions.
+</ParamField>
+
+<ResponseField name="*Digest" type="*Digest">
+  A pointer to a newly initialised `Digest` ready to accept writes.
+</ResponseField>
+
+---
+
+## ResetWithSeed
+
+```go
+func (d *Digest) ResetWithSeed(seed uint64)
+```
+
+`ResetWithSeed` clears the `Digest` back to its initial state and re-initialises it with the given seed. Use it to reuse an existing `Digest` without allocating a new one — for example, to hash a batch of inputs with the same seed.
+
+Calling `d.ResetWithSeed(0)` is identical to calling `d.Reset()`.
+
+<ParamField path="seed" type="uint64" required>
+  The seed to use for the next hashing operation. The previous seed and all
+  accumulated state are discarded.
+</ParamField>
+
+---
+
+## Use cases
+
+<CardGroup cols={2}>
+  <Card title="Hash tables" icon="table">
+    Initialise each hash table with a randomly chosen seed at startup. This
+    ensures that keys collide differently in different tables, and makes
+    hash-flooding attacks impractical.
+  </Card>
+  <Card title="Consistent hashing" icon="circle-nodes">
+    Assign a fixed seed per shard or virtual node. Hashing the same key with the
+    same seed always yields the same bucket, which is required for consistent
+    hashing rings.
+  </Card>
+  <Card title="DoS-resistant hashing" icon="shield">
+    Choose a seed from a cryptographically secure random source at process
+    startup. An attacker who does not know the seed cannot craft inputs that
+    all hash to the same bucket.
+  </Card>
+  <Card title="Independent hash spaces" icon="arrows-split-up-and-left">
+    Use one seed per feature (e.g. caching, sharding, bloom filters) so that
+    each feature operates on its own hash family with no cross-contamination.
+  </Card>
+</CardGroup>
+
+---
+
+## Example: seeded hashing
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/cespare/xxhash/v2"
+)
+
+func main() {
+	// Seed 0 is equivalent to New().
+	d0 := xxhash.NewWithSeed(0)
+	d0.Write([]byte(""))
+	fmt.Printf("seed=0,  input=\"\":  0x%x\n", d0.Sum64()) // 0xef46db3751d8e999
+
+	// Different seed → different hash family.
+	d1 := xxhash.NewWithSeed(123)
+	d1.Write([]byte(""))
+	fmt.Printf("seed=123, input=\"\": 0x%x\n", d1.Sum64()) // 0xe0db84de91f3e198
+
+	// 63-character string with seed 54321.
+	const s63 = "Call me Ishmael. Some years ago--never mind how long precisely-"
+	d2 := xxhash.NewWithSeed(54321)
+	d2.WriteString(s63)
+	fmt.Printf("seed=54321, input=len-63: 0x%x\n", d2.Sum64()) // 0x1736d186daf5d1cd
+}
+```
+
+---
+
+## Example: reusing a seeded Digest
+
+Reusing a `Digest` with `ResetWithSeed` avoids repeated allocations when you need to hash many inputs with the same seed:
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/cespare/xxhash/v2"
+)
+
+func hashAll(seed uint64, inputs []string) []uint64 {
+	d := xxhash.NewWithSeed(seed)
+	results := make([]uint64, len(inputs))
+	for i, s := range inputs {
+		// Reset to the same seed before each input.
+		d.ResetWithSeed(seed)
+		d.WriteString(s)
+		results[i] = d.Sum64()
+	}
+	return results
+}
+
+func main() {
+	inputs := []string{"foo", "bar", "baz"}
+	hashes := hashAll(42, inputs)
+	for i, h := range hashes {
+		fmt.Printf("%s → 0x%x\n", inputs[i], h)
+	}
+}
+```
+
+<Note>
+  `ResetWithSeed` discards all accumulated state and re-initialises the
+  internal accumulators with the new seed. You must call it (or `Reset`)
+  between inputs when reusing a `Digest`.
+</Note>

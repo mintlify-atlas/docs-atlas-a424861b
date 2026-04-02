@@ -1,0 +1,58 @@
+---
+title: "Build tags"
+description: "Control which xxhash implementation is compiled into your binary."
+---
+
+xxhash ships three implementation variants selected automatically at compile time via Go build constraints.
+
+## Default: assembly (amd64 and arm64)
+
+On `amd64` and `arm64` with the standard `gc` compiler and no special tags, the package compiles assembly implementations from `xxhash_amd64.s` and `xxhash_arm64.s`. This is the fastest path — up to 17 GB/s on large inputs.
+
+Build constraint (from source):
+```
+//go:build (amd64 || arm64) && !appengine && gc && !purego
+```
+
+## purego: force pure Go
+
+Add the `purego` build tag to opt into the pure Go implementation on any architecture:
+
+```bash
+go build -tags purego ./...
+go test  -tags purego ./...
+```
+
+Use `purego` when:
+- Cross-compiling to a platform where the assembly is unavailable
+- Debugging hashing behavior without assembly
+- Running in environments that restrict compiled-in machine code
+
+<Note>
+The pure Go implementation is still very fast — 12 GB/s on large inputs. The assembly advantage is most significant on inputs larger than 1 KB.
+</Note>
+
+## appengine: safe (no unsafe)
+
+The `appengine` build tag forces a fully safe implementation that avoids the `unsafe` package entirely. This is required by the Google App Engine sandbox.
+
+```bash
+go build -tags appengine ./...
+```
+
+Build constraint (from source):
+```
+//go:build appengine
+```
+
+<Note>
+When `appengine` is set, `Sum64String` converts the string to `[]byte` (with a copy) rather than using an unsafe pointer cast. The result is identical but marginally slower for string inputs.
+</Note>
+
+## Summary
+
+| Build tag     | Implementation | Uses unsafe | Assembly |
+|---------------|----------------|-------------|----------|
+| (none, amd64/arm64) | Assembly  | Yes         | Yes      |
+| `purego`      | Pure Go        | Yes         | No       |
+| `appengine`   | Pure Go (safe) | No          | No       |

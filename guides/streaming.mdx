@@ -1,0 +1,63 @@
+---
+title: "Streaming hashing"
+description: "Use the Digest type to hash data incrementally from io.Reader, network streams, or multi-part inputs."
+---
+
+Use the `Digest` type when your data arrives in chunks, comes from an `io.Reader`, or is too large to hold in memory all at once.
+
+## When to use streaming vs one-shot
+
+- **One-shot** (`Sum64` / `Sum64String`): best when you have the entire input in memory already.
+- **Streaming** (`Digest`): best when data arrives in pieces, comes from a file/network, or you want to hash multiple segments as one logical input.
+
+## Hashing in multiple writes
+
+```go
+import "github.com/cespare/xxhash/v2"
+
+d := xxhash.New()
+d.WriteString("hello ")
+d.WriteString("world")
+fmt.Printf("%016x\n", d.Sum64())
+// same result as xxhash.Sum64String("hello world")
+```
+
+Both `Write` and `WriteString` always succeed — they always return `len(input), nil`.
+
+## Hashing from an io.Reader
+
+Because `Digest` implements `io.Writer`, you can use `io.Copy` directly:
+
+```go
+import (
+    "io"
+    "os"
+    "github.com/cespare/xxhash/v2"
+)
+
+f, _ := os.Open("data.bin")
+defer f.Close()
+
+d := xxhash.New()
+io.Copy(d, f)
+fmt.Printf("%016x\n", d.Sum64())
+```
+
+## Reusing a Digest with Reset
+
+Creating a new `Digest` for every operation is unnecessary. Call `Reset()` to clear state and reuse the same object — this avoids any allocation overhead.
+
+```go
+d := xxhash.New()
+
+for _, item := range items {
+    d.Reset()
+    d.Write(item)
+    bucket := d.Sum64() % numBuckets
+    // use bucket...
+}
+```
+
+<Tip>
+Reusing a `Digest` with `Reset` is the recommended pattern for high-throughput code, such as inside hot loops or request handlers.
+</Tip>

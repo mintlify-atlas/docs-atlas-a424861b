@@ -1,0 +1,72 @@
+---
+title: "Introduction"
+description: "Overview of xxhash — a high-performance 64-bit xxHash (XXH64) library for Go."
+---
+
+xxhash is a Go implementation of the 64-bit [xxHash algorithm](https://xxhash.com/) (XXH64). It produces a 64-bit digest and is significantly faster than any hashing algorithm in the Go standard library, making it well-suited for performance-sensitive applications such as hash maps, caches, and data deduplication.
+
+<Info>
+  xxhash is used in production by InfluxDB, Prometheus, VictoriaMetrics, Badger, and other high-throughput systems.
+</Info>
+
+## Why xxhash?
+
+The Go standard library's `hash/fnv` and `hash/adler32` packages are general-purpose but not optimized for speed. xxhash is purpose-built for fast, non-cryptographic hashing. On large inputs (4 KB and above), the assembly-backed implementation reaches throughput above 16 GB/s on modern hardware — more than twice what the pure-Go path achieves.
+
+xxhash is **not** a cryptographic hash function. Do not use it for password hashing or integrity verification against adversarial input.
+
+## Two usage patterns
+
+The library exposes two ways to hash data:
+
+**One-shot hashing** computes a hash in a single call. Use this when you have all your data available at once:
+
+- `Sum64(b []byte) uint64` — hash a byte slice
+- `Sum64String(s string) uint64` — hash a string without converting it to `[]byte`
+
+**Streaming hashing** accumulates data incrementally via the `Digest` type. Use this when your data arrives in chunks or you want to reuse the hasher:
+
+- `New() *Digest` — create a new `Digest` with a zero seed
+- `(*Digest).Write(b []byte) (int, error)` — write bytes into the digest
+- `(*Digest).WriteString(s string) (int, error)` — write a string into the digest
+- `(*Digest).Sum64() uint64` — read the current hash value
+
+## Assembly-optimized implementations
+
+The package ships with hand-written assembly for **amd64** and **arm64**. On all other platforms, or when you set the `purego` build tag, it falls back to an optimized pure-Go implementation that produces identical results.
+
+<Note>
+  The `purego` build tag is also honoured on amd64 and arm64 if you need a CGo-free or AppEngine-compatible build. See [Build tags](/guides/build-tags) for details.
+</Note>
+
+## `hash.Hash64` compatibility
+
+`Digest` implements the standard `hash.Hash64` interface from the `hash` package. You can pass a `*Digest` anywhere a `hash.Hash64` is expected, including standard library APIs such as `hash/maphash` adapters or third-party libraries that accept generic hashers.
+
+## Public API surface
+
+| Symbol | Kind | Description |
+|---|---|---|
+| `Sum64(b []byte) uint64` | Function | One-shot hash of a byte slice |
+| `Sum64String(s string) uint64` | Function | One-shot hash of a string |
+| `Digest` | Type | Streaming hasher; implements `hash.Hash64` |
+| `New() *Digest` | Function | Create a `Digest` with a zero seed |
+| `NewWithSeed(seed uint64) *Digest` | Function | Create a `Digest` with a custom seed |
+| `(*Digest).Write([]byte) (int, error)` | Method | Feed bytes into the digest |
+| `(*Digest).WriteString(string) (int, error)` | Method | Feed a string into the digest |
+| `(*Digest).Sum64() uint64` | Method | Return the current hash value |
+| `(*Digest).Reset()` | Method | Reset the digest to its initial zero-seed state |
+| `(*Digest).ResetWithSeed(uint64)` | Method | Reset the digest with a given seed |
+| `(*Digest).MarshalBinary() ([]byte, error)` | Method | Serialize the digest state |
+| `(*Digest).UnmarshalBinary([]byte) error` | Method | Restore a previously serialized state |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Add xxhash to your Go module with a single command.
+  </Card>
+  <Card title="Quickstart" icon="bolt" href="/quickstart">
+    Hash your first value in under a minute.
+  </Card>
+</CardGroup>

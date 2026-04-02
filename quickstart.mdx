@@ -1,80 +1,144 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Hash your first value with xxhash in under a minute."
 ---
 
-## Get started in three steps
+This page walks you through a complete working program that demonstrates both one-shot and streaming hashing.
 
-Get your documentation site running locally and make your first customization.
+## Complete example
 
-### Step 1: Set up your local environment
+```go main.go
+package main
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+import (
+	"fmt"
 
-### Step 2: Deploy your changes
+	"github.com/cespare/xxhash/v2"
+)
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+func main() {
+	// --- One-shot hashing ---
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+	// Hash a string directly (no []byte conversion, no allocation).
+	h1 := xxhash.Sum64String("")
+	fmt.Printf("Sum64String(\"\")    = 0x%x\n", h1)
+	// Output: Sum64String("")    = 0xef46db3751d8e999
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+	h2 := xxhash.Sum64String("a")
+	fmt.Printf("Sum64String(\"a\")   = 0x%x\n", h2)
+	// Output: Sum64String("a")   = 0xd24ec4f1a98c6e5b
 
-### Step 3: Go live
+	// Hash a byte slice.
+	h3 := xxhash.Sum64([]byte("asdf"))
+	fmt.Printf("Sum64(\"asdf\")      = 0x%x\n", h3)
+	// Output: Sum64("asdf")      = 0x415872f599cea71e
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+	// --- Streaming hashing ---
+
+	// Create a new Digest and feed data in multiple writes.
+	d := xxhash.New()
+	d.WriteString("hello")
+	d.WriteString(", ")
+	d.Write([]byte("world"))
+	fmt.Printf("streaming result  = 0x%x\n", d.Sum64())
+
+	// Reset and reuse the same Digest.
+	d.Reset()
+	d.WriteString("hello, world")
+	fmt.Printf("one-shot result   = 0x%x\n", d.Sum64())
+	// Both lines above print the same value.
+}
+```
+
+Expected output:
+
+```text
+Sum64String("")    = 0xef46db3751d8e999
+Sum64String("a")   = 0xd24ec4f1a98c6e5b
+Sum64("asdf")      = 0x415872f599cea71e
+streaming result  = 0x<hash of "hello, world">
+one-shot result   = 0x<hash of "hello, world">
+```
+
+<Tip>
+  Prefer `Sum64String(s)` over `Sum64([]byte(s))` when you already have a string. Converting a string to `[]byte` allocates on the heap. `Sum64String` reads the string's memory directly, so it is both faster and allocation-free.
+</Tip>
+
+## Step-by-step walkthrough
+
+<Steps>
+  <Step title="Import the package">
+    Add the v2 import path to your file:
+
+    ```go
+    import "github.com/cespare/xxhash/v2"
+    ```
+
+    All exported symbols are under the `xxhash` package name.
+  </Step>
+
+  <Step title="Hash a string in one call">
+    Use `Sum64String` to hash a string and get a `uint64` result immediately:
+
+    ```go
+    h := xxhash.Sum64String("hello")
+    fmt.Printf("0x%x\n", h)
+    ```
+
+    Use `Sum64` when your data is already a `[]byte`:
+
+    ```go
+    h := xxhash.Sum64([]byte{0x68, 0x65, 0x6c, 0x6c, 0x6f})
+    fmt.Printf("0x%x\n", h)
+    ```
+  </Step>
+
+  <Step title="Hash data in multiple chunks with Digest">
+    Call `xxhash.New()` to create a `*Digest`, write your data in as many calls as you like, then read the final hash with `Sum64`:
+
+    ```go
+    d := xxhash.New()
+    d.WriteString("part one")
+    d.Write([]byte(" part two"))
+    fmt.Printf("0x%x\n", d.Sum64())
+    ```
+
+    `Write` and `WriteString` both satisfy the `io.Writer` / `io.StringWriter` contracts and always return `(len(input), nil)`.
+  </Step>
+
+  <Step title="Reuse a Digest with Reset">
+    Instead of allocating a new `Digest` for every hash, call `Reset` to clear the state and start over:
+
+    ```go
+    d := xxhash.New()
+
+    d.WriteString("first input")
+    h1 := d.Sum64()
+
+    d.Reset()
+    d.WriteString("second input")
+    h2 := d.Sum64()
+
+    fmt.Printf("h1=0x%x  h2=0x%x\n", h1, h2)
+    ```
+
+    `Reset` uses a zero seed. If you need a non-zero seed, use `ResetWithSeed(seed uint64)` instead.
+  </Step>
+</Steps>
+
+## Known hash values
+
+The table below lists verified output values taken directly from the test suite. You can use these to confirm your setup is working correctly.
+
+| Input | `Sum64String` result |
+|---|---|
+| `""` (empty string) | `0xef46db3751d8e999` |
+| `"a"` | `0xd24ec4f1a98c6e5b` |
+| `"as"` | `0x1c330fb2d66be179` |
+| `"asd"` | `0x631c37ce72a97393` |
+| `"asdf"` | `0x415872f599cea71e` |
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+- [Sum64 API reference](/api/sum64) — full documentation for the one-shot functions
+- [Digest API reference](/api/digest) — full documentation for the streaming `Digest` type

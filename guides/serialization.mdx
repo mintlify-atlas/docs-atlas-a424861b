@@ -1,0 +1,71 @@
+---
+title: "Serializing digest state"
+description: "Save and restore a Digest's state using binary marshaling."
+---
+
+`Digest` implements `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler`, letting you checkpoint a hash computation and resume it later — even in a different process.
+
+## Use cases
+
+- **Checkpointing**: pause a long-running hash, save state to disk, and resume from exactly the same point
+- **Caching partial results**: cache the hash state after a common prefix, then branch from it for different suffixes without reprocessing the prefix
+
+## Marshaling state
+
+```go
+d := xxhash.New()
+d.WriteString("abc")
+
+// Save state
+state, err := d.MarshalBinary()
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+`MarshalBinary` always succeeds — the returned error is always `nil`.
+
+## Restoring state
+
+```go
+d2 := xxhash.New()
+if err := d2.UnmarshalBinary(state); err != nil {
+    log.Fatal(err)
+}
+
+d2.WriteString("def")
+fmt.Printf("%016x\n", d2.Sum64())
+// Equivalent to: xxhash.Sum64String("abcdef")
+```
+
+## Full checkpoint example
+
+```go
+d := xxhash.New()
+d.WriteString("abc")
+
+// Checkpoint
+state, _ := d.MarshalBinary()
+
+// Restore and continue in a new Digest
+d2 := xxhash.New()
+d2.UnmarshalBinary(state)
+d2.WriteString("def")
+
+want := xxhash.Sum64String("abcdef")
+got  := d2.Sum64()
+fmt.Println(got == want) // true
+```
+
+## Error handling
+
+`UnmarshalBinary` returns an error if the input is invalid:
+
+| Error message | Cause |
+|---|---|
+| `xxhash: invalid hash state identifier` | Magic bytes don't match — wrong data source |
+| `xxhash: invalid hash state size` | Buffer length is wrong |
+
+<Warning>
+The binary serialization format is an internal implementation detail. Do not rely on it across different versions of xxhash. Always marshal and unmarshal with the same version of the library.
+</Warning>

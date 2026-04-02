@@ -1,0 +1,65 @@
+---
+title: "Installation"
+description: "Add xxhash to your Go module."
+---
+
+<Tip>
+  Always use the latest stable release of Go. The xxhash module requires Go 1.11 or later, but newer releases include compiler improvements that further boost hashing performance.
+</Tip>
+
+<Steps>
+  <Step title="Add the module to your project">
+    Run the following command from your module root to download xxhash and add it to your `go.mod` and `go.sum` files:
+
+    ```bash
+    go get github.com/cespare/xxhash/v2
+    ```
+  </Step>
+
+  <Step title="Import the package">
+    Add the import path to any Go file where you want to use xxhash:
+
+    ```go
+    import "github.com/cespare/xxhash/v2"
+    ```
+
+    The package name is `xxhash`, so you call exported symbols as `xxhash.Sum64(...)`, `xxhash.New()`, and so on.
+  </Step>
+
+  <Step title="Verify the installation">
+    Confirm the dependency was resolved successfully:
+
+    ```bash
+    go mod tidy
+    go build ./...
+    ```
+
+    If both commands complete without errors, xxhash is ready to use.
+  </Step>
+</Steps>
+
+## Module path
+
+The module path is `github.com/cespare/xxhash/v2`. The `/v2` suffix follows Go module major-version conventions and indicates that this is the v2 module, which contains the current stable API. Always use the `/v2` path in your imports — the unprefixed `github.com/cespare/xxhash` path refers to the older v1 module.
+
+## Go version requirements
+
+The module declares `go 1.11` in its `go.mod`. If you are running an older patch release, the following minimum patch versions include the necessary module compatibility support:
+
+- Go 1.9: version **1.9.7** or later
+- Go 1.10: version **1.10.3** or later
+- Go 1.11 or later: any release
+
+## `purego` build tag
+
+By default, xxhash uses assembly-optimized code on **amd64** and **arm64**. If you need to opt out of assembly — for example, to satisfy a `CGO_ENABLED=0` pipeline that also disallows non-Go code, or to run on Google App Engine — pass the `purego` build tag:
+
+```bash
+go build -tags purego ./...
+```
+
+The pure-Go path produces identical hash values and is still heavily optimized; it is only marginally slower on large inputs. See [Build tags](/guides/build-tags) for a full comparison.
+
+<Note>
+  The `purego` tag has no effect on architectures other than amd64 and arm64 because those platforms already use the pure-Go implementation by default.
+</Note>

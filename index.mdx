@@ -1,97 +1,75 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "xxhash"
+description: "A fast Go implementation of the 64-bit xxHash algorithm (XXH64) with assembly-optimized paths for amd64 and arm64."
 ---
 
-## Setting up
+xxhash is a Go implementation of the 64-bit [xxHash](https://xxhash.com/) algorithm, XXH64. It is significantly faster than any hashing algorithm in the Go standard library, with throughput up to 17 GB/s on amd64 hardware.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Add xxhash to your Go module in seconds
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Hash your first value with a working example
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="API Reference" icon="code" href="/api/sum64">
+    Complete reference for all exported functions and types
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Guides" icon="book" href="/guides/streaming">
+    Streaming, seeding, serialization, and build configuration
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Why xxhash?
 
-Everything you need to create world-class documentation.
+xxhash is designed for speed-critical applications where hash quality still matters — caches, hash maps, checksums, and deduplication pipelines.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={2}>
+  <Card title="Up to 17 GB/s throughput" icon="bolt">
+    Assembly-optimized paths for amd64 and arm64 achieve near-memory-bandwidth hashing speed.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Zero allocations" icon="leaf">
+    Both one-shot (`Sum64`) and streaming (`Digest`) APIs are designed to produce zero heap allocations.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Implements hash.Hash64" icon="plug">
+    Drop-in compatible with any code that accepts Go's standard `hash.Hash64` interface.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Seeded hashing" icon="key">
+    Create independent hash spaces with `NewWithSeed` for applications like consistent hashing.
   </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+## Quick example
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/cespare/xxhash/v2"
+)
+
+func main() {
+    // One-shot hashing
+    h := xxhash.Sum64String("hello world")
+    fmt.Printf("%016x\n", h)
+
+    // Streaming hashing
+    d := xxhash.New()
+    d.WriteString("hello ")
+    d.WriteString("world")
+    fmt.Printf("%016x\n", d.Sum64())
+}
+```
+
+## Trusted by major projects
+
+xxhash is used in production by some of the most demanding Go projects:
+
+- [Prometheus](https://github.com/prometheus/prometheus)
+- [InfluxDB](https://github.com/influxdata/influxdb)
+- [VictoriaMetrics](https://github.com/VictoriaMetrics/VictoriaMetrics)
+- [Badger](https://github.com/dgraph-io/badger)
+- [Ristretto](https://github.com/dgraph-io/ristretto)
+- [FreeCache](https://github.com/coocood/freecache)
+- [FastCache](https://github.com/VictoriaMetrics/fastcache)

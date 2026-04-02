@@ -1,0 +1,203 @@
+---
+title: "Digest type"
+description: "Streaming hash.Hash64 implementation for incremental hashing."
+---
+
+`Digest` is a streaming hash accumulator that implements the standard library's `hash.Hash64` interface (which itself satisfies `hash.Hash`). Use it when you want to hash data incrementally — for example, reading from an `io.Reader` chunk by chunk — or when you need to feed data from multiple sources without concatenating them first.
+
+<Warning>
+  A zero-valued `Digest` is **not ready to use**. You must initialise it by
+  calling `New()` or by calling `Reset()` on an existing value before writing
+  any data. Writing to an uninitialised `Digest` will silently produce an
+  incorrect hash.
+</Warning>
+
+---
+
+## Constructor
+
+### New
+
+```go
+func New() *Digest
+```
+
+`New` creates and returns a new `*Digest` initialised with a zero seed. It is equivalent to calling `NewWithSeed(0)`. For seeded hashing see [Seeded hashing](/api/seeding).
+
+<ResponseField name="*Digest" type="*Digest">
+  A pointer to a newly initialised `Digest` ready to accept writes.
+</ResponseField>
+
+---
+
+## Methods
+
+### Write
+
+```go
+func (d *Digest) Write(b []byte) (int, error)
+```
+
+`Write` adds the bytes in `b` to the running hash. It always returns `len(b), nil` — it never returns an error.
+
+<ParamField path="b" type="[]byte" required>
+  The bytes to incorporate into the hash. Passing a nil or empty slice is valid
+  and has no effect on the digest.
+</ParamField>
+
+<ResponseField name="n" type="int">
+  Always equal to `len(b)`.
+</ResponseField>
+
+<ResponseField name="err" type="error">
+  Always `nil`.
+</ResponseField>
+
+---
+
+### WriteString
+
+```go
+func (d *Digest) WriteString(s string) (int, error)
+```
+
+`WriteString` adds the string `s` to the running hash. It always returns `len(s), nil`.
+
+On non-`appengine` builds, `WriteString` uses an unsafe string-to-slice conversion to avoid copying the string data, which can make it faster than calling `Write([]byte(s))`. On `appengine` builds a safe copy-based fallback is used.
+
+<ParamField path="s" type="string" required>
+  The string to incorporate into the hash.
+</ParamField>
+
+<ResponseField name="n" type="int">
+  Always equal to `len(s)`.
+</ResponseField>
+
+<ResponseField name="err" type="error">
+  Always `nil`.
+</ResponseField>
+
+---
+
+### Sum64
+
+```go
+func (d *Digest) Sum64() uint64
+```
+
+`Sum64` returns the current 64-bit hash of all data written so far. Calling `Sum64` does not reset or modify the `Digest` — you can continue writing data and call `Sum64` again to get an updated value.
+
+<ResponseField name="uint64" type="uint64">
+  The current 64-bit xxHash digest.
+</ResponseField>
+
+---
+
+### Sum
+
+```go
+func (d *Digest) Sum(b []byte) []byte
+```
+
+`Sum` appends the current hash as an 8-byte big-endian value to `b` and returns the extended slice. This method satisfies the `hash.Hash` interface. If you only need the numeric value, prefer `Sum64` instead.
+
+<ParamField path="b" type="[]byte">
+  The slice to append the hash bytes to. Pass `nil` to allocate a fresh 8-byte
+  slice.
+</ParamField>
+
+<ResponseField name="[]byte" type="[]byte">
+  `b` extended with the 8 big-endian bytes of the current hash.
+</ResponseField>
+
+---
+
+### Reset
+
+```go
+func (d *Digest) Reset()
+```
+
+`Reset` clears the `Digest` back to its initial state with a zero seed, as if it had just been created with `New()`. After calling `Reset` you can reuse the same `Digest` without allocating a new one.
+
+To reset to a non-zero seed, use `ResetWithSeed`. See [Seeded hashing](/api/seeding).
+
+---
+
+### Size
+
+```go
+func (d *Digest) Size() int
+```
+
+`Size` always returns `8`. This satisfies the `hash.Hash` interface and reflects that xxHash produces an 8-byte (64-bit) digest.
+
+<ResponseField name="int" type="int">
+  Always `8`.
+</ResponseField>
+
+---
+
+### BlockSize
+
+```go
+func (d *Digest) BlockSize() int
+```
+
+`BlockSize` always returns `32`. This satisfies the `hash.Hash` interface and reflects the internal 32-byte processing block of XXH64.
+
+<ResponseField name="int" type="int">
+  Always `32`.
+</ResponseField>
+
+---
+
+## Zero-allocation guarantee
+
+Creating a `Digest` with `New()`, writing to it, and reading `Sum64()` makes zero heap allocations for typical usage. This guarantee is enforced by `TestAllocs` in the test suite. The key requirement is that the `*Digest` pointer must not escape to the heap — avoid storing it in an interface or a heap-allocated struct if you need the zero-allocation property.
+
+---
+
+## Streaming example
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/cespare/xxhash/v2"
+)
+
+func main() {
+	d := xxhash.New()
+
+	// Write data in chunks — same result regardless of chunk boundaries.
+	chunks := []string{
+		"Call me Ishmael. ",
+		"Some years ago--",
+		"never mind how long precisely-",
+	}
+	for _, chunk := range chunks {
+		d.WriteString(chunk)
+	}
+
+	fmt.Printf("hash: 0x%x\n", d.Sum64())
+
+	// Reset and reuse the same Digest.
+	d.Reset()
+	d.WriteString("a")
+	fmt.Printf("hash of \"a\": 0x%x\n", d.Sum64()) // 0xd24ec4f1a98c6e5b
+}
+```
+
+---
+
+## Interface compatibility
+
+`*Digest` satisfies both `hash.Hash` and `hash.Hash64` from the standard library, so you can pass it directly to any function that accepts either interface.
+
+```go
+var _ hash.Hash64 = xxhash.New()
+var _ hash.Hash   = xxhash.New()
+```

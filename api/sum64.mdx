@@ -1,0 +1,109 @@
+---
+title: "Sum64 functions"
+description: "One-shot hashing functions: Sum64 and Sum64String."
+---
+
+Use `Sum64` and `Sum64String` when you have all your data available at once and want a single hash value with no intermediate state. Both functions use a zero seed and produce a 64-bit xxHash digest.
+
+## Sum64
+
+```go
+func Sum64(b []byte) uint64
+```
+
+`Sum64` computes the 64-bit xxHash digest of `b` with a zero seed.
+
+On `amd64` and `arm64` targets (when not using `appengine`, `purego`, or the `gccgo` compiler), the implementation is written in assembly for maximum throughput. On all other platforms, a pure-Go fallback is used automatically — you do not need to change anything in your code.
+
+### Parameters
+
+<ParamField path="b" type="[]byte" required>
+  The byte slice to hash. May be empty, in which case the function still returns
+  a well-defined digest.
+</ParamField>
+
+### Return value
+
+<ResponseField name="uint64" type="uint64">
+  The 64-bit xxHash digest of `b` computed with a zero seed.
+</ResponseField>
+
+### Zero-allocation guarantee
+
+`Sum64` is guaranteed to make zero heap allocations for typical usage. Passing `[]byte(s)` where `s` is a string constant or local variable will not cause an allocation because the intermediate slice does not escape to the heap. This guarantee is enforced by `TestAllocs` in the test suite.
+
+---
+
+## Sum64String
+
+```go
+func Sum64String(s string) uint64
+```
+
+`Sum64String` computes the 64-bit xxHash digest of `s` with a zero seed. It produces the same result as `Sum64([]byte(s))`.
+
+<Note>
+  On non-`appengine` builds, `Sum64String` uses an unsafe string-to-slice
+  conversion to avoid copying the string data. This can make it measurably
+  faster than calling `Sum64([]byte(s))`, especially for large strings. On
+  `appengine` builds a safe copy-based fallback is used instead.
+</Note>
+
+### Parameters
+
+<ParamField path="s" type="string" required>
+  The string to hash. May be empty.
+</ParamField>
+
+### Return value
+
+<ResponseField name="uint64" type="uint64">
+  The 64-bit xxHash digest of `s` computed with a zero seed.
+</ResponseField>
+
+---
+
+## Example
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/cespare/xxhash/v2"
+)
+
+func main() {
+	// Hash a byte slice
+	h1 := xxhash.Sum64([]byte(""))
+	fmt.Printf("Sum64(\"\"):      0x%x\n", h1) // 0xef46db3751d8e999
+
+	// Hash strings directly — no copy on non-appengine builds
+	h2 := xxhash.Sum64String("a")
+	fmt.Printf("Sum64String(\"a\"):    0x%x\n", h2) // 0xd24ec4f1a98c6e5b
+
+	h3 := xxhash.Sum64String("asdf")
+	fmt.Printf("Sum64String(\"asdf\"): 0x%x\n", h3) // 0x415872f599cea71e
+}
+```
+
+Expected output:
+
+```
+Sum64(""):          0xef46db3751d8e999
+Sum64String("a"):   0xd24ec4f1a98c6e5b
+Sum64String("asdf"):0x415872f599cea71e
+```
+
+---
+
+## Choosing between Sum64 and Sum64String
+
+| Situation | Recommended function |
+|---|---|
+| You have a `[]byte` | `Sum64(b)` |
+| You have a `string` | `Sum64String(s)` |
+| You have a `string` but are on `appengine` | Either — both fall back to a copy |
+
+When you already hold a `string`, prefer `Sum64String(s)` over `Sum64([]byte(s))`. On most platforms the former avoids the allocation of a new backing array for the intermediate slice.

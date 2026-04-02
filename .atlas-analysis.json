@@ -1,0 +1,52 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "xxhash",
+  "projectDescription": "A fast Go implementation of the 64-bit xxHash algorithm (XXH64) with assembly-optimized paths for amd64 and arm64.",
+  "theme": "luma",
+  "primaryColor": "#ffffff",
+  "lightColor": "#74d7ed",
+  "darkColor": "#38484e",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": ["introduction", "installation", "quickstart"]
+      },
+      {
+        "group": "API Reference",
+        "pages": ["api/sum64", "api/digest", "api/seeding"]
+      },
+      {
+        "group": "Guides",
+        "pages": ["guides/streaming", "guides/build-tags", "guides/benchmarks", "guides/serialization"]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Extremely fast 64-bit xxHash (XXH64) implementation in pure Go",
+    "Assembly-optimized implementations for amd64 and arm64 architectures",
+    "Implements the standard hash.Hash64 interface for drop-in compatibility",
+    "Zero-allocation design for both one-shot and streaming usage",
+    "Seeded hashing via NewWithSeed and ResetWithSeed",
+    "Binary marshaling/unmarshaling of Digest state",
+    "String hashing without allocation via Sum64String and WriteString",
+    "purego build tag to opt into the Go implementation on any platform"
+  ],
+  "publicApiSurface": [
+    "func Sum64(b []byte) uint64",
+    "func Sum64String(s string) uint64",
+    "func New() *Digest",
+    "func NewWithSeed(seed uint64) *Digest",
+    "type Digest struct",
+    "func (*Digest) Write(b []byte) (int, error)",
+    "func (*Digest) WriteString(s string) (int, error)",
+    "func (*Digest) Sum64() uint64",
+    "func (*Digest) Sum(b []byte) []byte",
+    "func (*Digest) Reset()",
+    "func (*Digest) ResetWithSeed(seed uint64)",
+    "func (*Digest) Size() int",
+    "func (*Digest) BlockSize() int",
+    "func (*Digest) MarshalBinary() ([]byte, error)",
+    "func (*Digest) UnmarshalBinary(b []byte) error"
+  ]
+}
